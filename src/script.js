@@ -96,9 +96,9 @@ const params = {
     bloomRadius: 0.26,
     bloomThreshold: 2.0,
 
-    dopplerStrength: 0.39,
-    dopplerColorShift: 0.51,
-    spinDirection: -0.4,
+    dopplerStrength: 0.72,
+    dopplerColorShift: 0.87,
+    spinDirection: -0.39,
 };
 let nonStringInnerColor = params.innerColor.replace("`#", "0x");
 let nonStringOuterColor = params.outerColor.replace("`#", "0x");
@@ -442,14 +442,14 @@ if (pane) {
     const blackHoleFolder = pane.addFolder({ title: "Black Hole" });
     blackHoleFolder.addBinding(params, "innerColor", { label: "Inner Color" }).on("change", (ev) => {
         nonStringInnerColor = ev.value.replace("`#", "0x");
-        discMaterial.uniforms.uInnerColor.value.set(nonStringInnerColor);
-        particlesMaterial.uniforms.uInnerColor.value.set(nonStringInnerColor);
+        discMaterial.uniforms.uInnerColor.value.set(ev.value);
+        particlesMaterial.uniforms.uInnerColor.value.set(ev.value);
         params.innerColor = ev.value;
     });
     blackHoleFolder.addBinding(params, "outerColor", { label: "Outer Color" }).on("change", (ev) => {
         nonStringOuterColor = ev.value.replace("`#", "0x");
-        discMaterial.uniforms.uOuterColor.value.set(nonStringOuterColor);
-        particlesMaterial.uniforms.uOuterColor.value.set(nonStringOuterColor);
+        discMaterial.uniforms.uOuterColor.value.set(ev.value);
+        particlesMaterial.uniforms.uOuterColor.value.set(ev.value);
         params.outerColor = ev.value;
     });
     blackHoleFolder.addBinding(params, "starsSize", { label: "Stars Size", min: 0.1, max: 400.0, step: 0.1 }).on("change", (ev) => {
