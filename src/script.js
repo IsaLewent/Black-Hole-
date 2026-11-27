@@ -75,7 +75,7 @@ const params = {
     starsSize: isMobile ? 400.0 : 1.5,
     particlesSize: 39.2,
 
-    brightness: 3.5,
+    brightness: 6.0,
     uvXTimeFrequency: 0.26,
     uvYTimeFrequency: 0.17,
     particlesSpeed: 15.9,
@@ -98,7 +98,7 @@ const params = {
 
     dopplerStrength: 0.72,
     dopplerColorShift: 0.87,
-    spinDirection: -0.39,
+    spinDirection: -0.46,
 };
 let nonStringInnerColor = params.innerColor.replace("`#", "0x");
 let nonStringOuterColor = params.outerColor.replace("`#", "0x");
