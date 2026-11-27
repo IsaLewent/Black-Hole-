@@ -54,6 +54,14 @@ import blackHoleDistortionMaskFragmentShader from "./shaders/blackHoleDistortion
 import blackHoleFinalSceneVertexShader from "./shaders/finalScene/vertex.glsl";
 import blackHoleFinalSceneFragmentShader from "./shaders/finalScene/fragment.glsl";
 
+//? Nebula Shaders
+import nebulaVertexShader from "./shaders/nebula/vertex.glsl";
+import nebulaFragmentShader from "./shaders/nebula/fragment.glsl";
+
+//? PhotonRing Shaders
+import photonRingVertexShader from "./shaders/photonRing/vertex.glsl";
+import photonRingFragmentShader from "./shaders/photonRing/fragment.glsl";
+
 //? Debug Location Hash
 const debugLocationHash = window.location.hash === "#debug";
 
@@ -80,6 +88,18 @@ const params = {
     distortionRadius: 0.20,
     distortionInnerValue: 1.4,
 
+    nebulaColorA: "#ab81ff",
+    nebulaColorB: "#db4298",
+    nebulaIntensity: 0.27,
+    nebulaScale: 2.8,
+
+    bloomStrength: 0.07,
+    bloomRadius: 0.26,
+    bloomThreshold: 2.0,
+
+    dopplerStrength: 0.39,
+    dopplerColorShift: 0.51,
+    spinDirection: -0.4,
 };
 let nonStringInnerColor = params.innerColor.replace("`#", "0x");
 let nonStringOuterColor = params.outerColor.replace("`#", "0x");
@@ -123,6 +143,26 @@ const finalCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 //? Setup The Controls
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
+
+//? Nebula
+const nebulaGeometry = new THREE.SphereGeometry(700, 48, 48);
+const nebulaMaterial = new THREE.ShaderMaterial({
+    vertexShader: nebulaVertexShader,
+    fragmentShader: nebulaFragmentShader,
+    uniforms: {
+        uColorA: { value: new THREE.Color(params.nebulaColorA) },
+        uColorB: { value: new THREE.Color(params.nebulaColorB) },
+        uIntensity: { value: params.nebulaIntensity },
+        uScale: { value: params.nebulaScale },
+    },
+    side: THREE.BackSide, // Kürenin iç yüzeyini çiz
+    depthWrite: false,    // Yıldızları ve diski asla kapatmaz
+    depthTest: false,
+});
+const nebula = new THREE.Mesh(nebulaGeometry, nebulaMaterial);
+nebula.renderOrder = -1; // Her zaman en arka katmanda çizilir
+spaceScene.add(nebula);
+
 
 //* Stars
 //? Stars Geometry
@@ -208,9 +248,12 @@ const discMaterial = new THREE.ShaderMaterial({
         uTime: { value: 0.0 },
         uInnerColor: { value: new THREE.Color(nonStringInnerColor) },
         uOuterColor: { value: new THREE.Color(nonStringOuterColor) },
-        uBrightness: { value: 3.5 },
-        uvXTimeFrequency: { value: 0.31 },
-        uvYTimeFrequency: { value: 0.09 },
+        uBrightness: { value: params.brightness },
+        uvXTimeFrequency: { value: params.uvXTimeFrequency },
+        uvYTimeFrequency: { value: params.uvYTimeFrequency },
+        uDopplerStrength: { value: params.dopplerStrength },
+        uDopplerColorShift: { value: params.dopplerColorShift },
+        uSpinDirection: { value: params.spinDirection },
     },
     side: THREE.DoubleSide,
     transparent: true,
@@ -358,6 +401,28 @@ renderer.setSize(sizes.width, sizes.height);
 renderer.setPixelRatio(sizes.pixelRatio);
 renderer.setClearColor("#000000");
 
+//? Effect Composer
+const composer = new EffectComposer(renderer);
+composer.setSize(sizes.width, sizes.height);
+composer.setPixelRatio(sizes.pixelRatio);
+
+//? 1.Pass
+const renderPass = new RenderPass(finalScene, finalCamera);
+composer.addPass(renderPass);
+
+//? 2.Pass
+const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(sizes.width, sizes.height),
+    params.bloomStrength,
+    params.bloomRadius,
+    params.bloomThreshold
+);
+composer.addPass(bloomPass);
+
+//? 3.Pass
+const outputPass = new OutputPass();
+composer.addPass(outputPass);
+
 //? General Black Hole GUI
 if (pane) {
     const blackHoleFolder = pane.addFolder({ title: "Black Hole" });
@@ -411,40 +476,45 @@ if (pane) {
         distortionMaskMaterial.uniforms.uDistortionInnerValue.value = ev.value;
         params.distortionInnerValue = ev.value;
     });
+    const nebulaFolder = pane.addFolder({ title: "Nebula" });
+    nebulaFolder.addBinding(params, "nebulaColorA", { label: "Color A" }).on("change", (ev) => {
+        nebulaMaterial.uniforms.uColorA.value.set(ev.value);
+    });
+    nebulaFolder.addBinding(params, "nebulaColorB", { label: "Color B" }).on("change", (ev) => {
+        nebulaMaterial.uniforms.uColorB.value.set(ev.value);
+    });
+    nebulaFolder.addBinding(nebulaMaterial.uniforms.uIntensity, "value", {
+        label: "Intensity",
+        min: 0.0,
+        max: 1.0,
+        step: 0.01,
+    });
+    nebulaFolder.addBinding(nebulaMaterial.uniforms.uScale, "value", {
+        label: "Scale",
+        min: 0.5,
+        max: 6.0,
+        step: 0.1,
+    });
+
+    const bloomFolder = pane.addFolder({ title: "Bloom" });
+    bloomFolder.addBinding(params, "bloomStrength", { label: "Strength", min: 0.0, max: 1.0, step: 0.01 }).on("change", (ev) => {
+        bloomPass.strength = ev.value;
+    });
+    bloomFolder.addBinding(params, "bloomRadius", { label: "Radius", min: 0.0, max: 1.0, step: 0.01 }).on("change", (ev) => {
+        bloomPass.radius = ev.value;
+    });
+    bloomFolder.addBinding(params, "bloomThreshold", { label: "Threshold", min: 0.0, max: 5.0, step: 0.01 }).on("change", (ev) => {
+        bloomPass.threshold = ev.value;
+    });
+
+    const discMaterialFolder = pane.addFolder({ title: "Disc Material" });
+    discMaterialFolder.addBinding(discMaterial.uniforms.uDopplerStrength, "value", { label: "Doppler Strength", min: 0.0, max: 1.0, step: 0.01 });
+    discMaterialFolder.addBinding(discMaterial.uniforms.uDopplerColorShift, "value", { label: "Doppler Color Shift", min: 0.0, max: 1.0, step: 0.01 });
+    discMaterialFolder.addBinding(discMaterial.uniforms.uSpinDirection, "value", { label: "Spin Direction", min: -1.0, max: 1.0, step: 0.01 });
 }
 
 //? Black Hole Screen Position
 const blackHoleScreenPosition = new THREE.Vector3();
-
-//? Effect Composer
-const composer = new EffectComposer(renderer);
-composer.setSize(sizes.width, sizes.height);
-composer.setPixelRatio(sizes.pixelRatio);
-
-//? 1.Pass
-const renderPass = new RenderPass(finalScene, finalCamera);
-composer.addPass(renderPass);
-
-//? 2.Pass
-const bloomPass = new UnrealBloomPass(
-    new THREE.Vector2(sizes.width, sizes.height),
-    0.07, // strength
-    0.26, // radius
-    2.0, // threshold
-);
-composer.addPass(bloomPass);
-
-//? 3.Pass
-const outputPass = new OutputPass();
-composer.addPass(outputPass);
-
-//? GUI
-if (pane) {
-    const bloomFolder = pane.addFolder({ title: "Bloom" });
-    bloomFolder.addBinding(bloomPass, "strength", { min: 0, max: 3, step: 0.01 });
-    bloomFolder.addBinding(bloomPass, "radius", { min: 0, max: 1, step: 0.01 });
-    bloomFolder.addBinding(bloomPass, "threshold", { min: 0, max: 2, step: 0.01 });
-}
 
 //? Animate
 const clock = new THREE.Timer();
