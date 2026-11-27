@@ -13,8 +13,6 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 
-
-
 //? Stats
 const stats = new Stats();
 stats.showPanel(1);
@@ -24,6 +22,8 @@ document.body.style.overflow = "hidden";
 document.body.style.backgroundColor = "black";
 document.body.appendChild(stats.dom);
 
+//? Mobile or Tablet Detection
+const isMobile = window.matchMedia("(max-width: 768px)").matches;
 
 //* Shaders
 //? Stars Shaders
@@ -64,7 +64,7 @@ const debugLocationHash = window.location.hash === "#debug";
 //? Debug UI
 let pane = null;
 if (debugLocationHash) {
-    pane = new Pane({ title: "Settings", expanded: true });
+    pane = new Pane({ title: "Settings", expanded: false });
 }
 
 //? UI Parameters
@@ -86,8 +86,8 @@ const params = {
 
     nebulaColorA: "#ab81ff",
     nebulaColorB: "#db4298",
-    nebulaIntensity: 0.27,
-    nebulaScale: 2.8,
+    nebulaIntensity: 1.0,
+    nebulaScale: 3.8,
 
     bloomStrength: 0.07,
     bloomRadius: 0.26,
@@ -113,13 +113,7 @@ const finalScene = new THREE.Scene();
 const sizes = {
     width: window.innerWidth,
     height: window.innerHeight,
-    pixelRatio: Math.min(window.devicePixelRatio, 2),
-};
-
-//? Cursor
-const cursor = {
-    x: 0,
-    y: 0,
+    pixelRatio: Math.min(window.devicePixelRatio, isMobile ? 1.25 : 2)
 };
 
 //? Camera
@@ -140,30 +134,10 @@ const finalCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
 
-//? Nebula
-const nebulaGeometry = new THREE.SphereGeometry(700, 48, 48);
-const nebulaMaterial = new THREE.ShaderMaterial({
-    vertexShader: nebulaVertexShader,
-    fragmentShader: nebulaFragmentShader,
-    uniforms: {
-        uColorA: { value: new THREE.Color(params.nebulaColorA) },
-        uColorB: { value: new THREE.Color(params.nebulaColorB) },
-        uIntensity: { value: params.nebulaIntensity },
-        uScale: { value: params.nebulaScale },
-    },
-    side: THREE.BackSide, // Kürenin iç yüzeyini çiz
-    depthWrite: false,    // Yıldızları ve diski asla kapatmaz
-    depthTest: false,
-});
-const nebula = new THREE.Mesh(nebulaGeometry, nebulaMaterial);
-nebula.renderOrder = -1; // Her zaman en arka katmanda çizilir
-spaceScene.add(nebula);
-
-
 //* Stars
 //? Stars Geometry
 const starsGeometry = new THREE.BufferGeometry();
-const starsCount = 50000;
+const starsCount = isMobile ? 10000 : 50000;
 const starsPosition = new Float32Array(starsCount * 3);
 const randomSize = new Float32Array(starsCount);
 const randomColor = new Float32Array(starsCount * 3);
@@ -269,7 +243,7 @@ const blackHole = new THREE.Mesh(blackHoleGeometry, blackHoleMaterial);
 
 //* Black Hole Particles
 //? Particles Geometry
-const particlesCount = 70000;
+const particlesCount = isMobile ? 10000 : 70000;
 const particlesGeometry = new THREE.BufferGeometry();
 const particlesPosition = new Float32Array(particlesCount * 3);
 const particlesDistance = new Float32Array(particlesCount);
@@ -351,7 +325,7 @@ const spaceRenderTarget = new THREE.WebGLRenderTarget(
         minFilter: THREE.LinearFilter,
         magFilter: THREE.LinearFilter,
         colorSpace: THREE.SRGBColorSpace,
-        type: THREE.HalfFloatType
+        type: isMobile ? THREE.UnsignedByteType : THREE.HalfFloatType,
     },
 );
 
@@ -385,8 +359,47 @@ finalScene.add(finalMesh);
 //? Renderer
 const renderer = new THREE.WebGLRenderer({
     canvas: canvas,
-    antialias: true,
+    antialias: false,
+    powerPreference: "high-performance",
 });
+
+//? Nebula
+//? Nebula Render Target
+const nebulaRenderTarget = new THREE.WebGLRenderTarget(
+    sizes.width * sizes.pixelRatio,
+    sizes.height * sizes.pixelRatio,
+    {
+        generateMipmaps: false,
+        minFilter: THREE.LinearFilter,
+        magFilter: THREE.LinearFilter,
+        wrapS: THREE.RepeatWrapping,
+        wrapT: THREE.RepeatWrapping,
+    },
+);
+const nebulaBakeScene = new THREE.Scene();
+const nebulaBakeCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.0, 10);
+nebulaBakeCamera.position.set(0, 0, 1);
+const nebulaMaterial = new THREE.ShaderMaterial({
+    vertexShader: nebulaVertexShader,
+    fragmentShader: nebulaFragmentShader,
+    uniforms: {
+        uColorA: { value: new THREE.Color(params.nebulaColorA) },
+        uColorB: { value: new THREE.Color(params.nebulaColorB) },
+        uIntensity: { value: params.nebulaIntensity },
+        uScale: { value: params.nebulaScale },
+    },
+});
+nebulaBakeScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), nebulaMaterial));
+const nebula = new THREE.Mesh(new THREE.SphereGeometry(500, 64, 64), new THREE.MeshBasicMaterial({ map: nebulaRenderTarget.texture, side: THREE.BackSide }));
+nebula.renderOrder = -1; // Her zaman en arka katmanda çizilir
+spaceScene.add(nebula);
+
+const bakeNebula = () => {
+    renderer.setRenderTarget(nebulaRenderTarget);
+    renderer.render(nebulaBakeScene, nebulaBakeCamera);
+    renderer.setRenderTarget(null);
+};
+bakeNebula();
 
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
@@ -398,9 +411,11 @@ renderer.setPixelRatio(sizes.pixelRatio);
 renderer.setClearColor("#000000");
 
 //? Effect Composer
+const bloomScale = isMobile ? 0.35 : 0.5;
+
 const composer = new EffectComposer(renderer);
-composer.setSize(sizes.width, sizes.height);
 composer.setPixelRatio(sizes.pixelRatio);
+composer.setSize(sizes.width * sizes.pixelRatio, sizes.height * sizes.pixelRatio);
 
 //? 1.Pass
 const renderPass = new RenderPass(finalScene, finalCamera);
@@ -408,7 +423,7 @@ composer.addPass(renderPass);
 
 //? 2.Pass
 const bloomPass = new UnrealBloomPass(
-    new THREE.Vector2(sizes.width, sizes.height),
+    new THREE.Vector2(sizes.width * sizes.bloomScale, sizes.height * bloomScale),
     params.bloomStrength,
     params.bloomRadius,
     params.bloomThreshold
@@ -475,33 +490,34 @@ if (pane) {
     const nebulaFolder = pane.addFolder({ title: "Nebula" });
     nebulaFolder.addBinding(params, "nebulaColorA", { label: "Color A" }).on("change", (ev) => {
         nebulaMaterial.uniforms.uColorA.value.set(ev.value);
+        bakeNebula();
     });
     nebulaFolder.addBinding(params, "nebulaColorB", { label: "Color B" }).on("change", (ev) => {
         nebulaMaterial.uniforms.uColorB.value.set(ev.value);
+        bakeNebula();
     });
-    nebulaFolder.addBinding(nebulaMaterial.uniforms.uIntensity, "value", {
-        label: "Intensity",
-        min: 0.0,
-        max: 1.0,
-        step: 0.01,
+    nebulaFolder.addBinding(params, "nebulaIntensity", { label: "Intensity", min: 0.0, max: 1.0, step: 0.01 }).on("change", (ev) => {
+        nebulaMaterial.uniforms.uIntensity.value = ev.value;
+        bakeNebula();
     });
-    nebulaFolder.addBinding(nebulaMaterial.uniforms.uScale, "value", {
-        label: "Scale",
-        min: 0.5,
-        max: 6.0,
-        step: 0.1,
+    nebulaFolder.addBinding(params, "nebulaScale", { label: "Scale", min: 0.1, max: 10.0, step: 0.01 }).on("change", (ev) => {
+        nebulaMaterial.uniforms.uScale.value = ev.value;
+        bakeNebula();
     });
 
-    const bloomFolder = pane.addFolder({ title: "Bloom" });
-    bloomFolder.addBinding(params, "bloomStrength", { label: "Strength", min: 0.0, max: 1.0, step: 0.01 }).on("change", (ev) => {
-        bloomPass.strength = ev.value;
-    });
-    bloomFolder.addBinding(params, "bloomRadius", { label: "Radius", min: 0.0, max: 1.0, step: 0.01 }).on("change", (ev) => {
-        bloomPass.radius = ev.value;
-    });
-    bloomFolder.addBinding(params, "bloomThreshold", { label: "Threshold", min: 0.0, max: 5.0, step: 0.01 }).on("change", (ev) => {
-        bloomPass.threshold = ev.value;
-    });
+    // const bloomFolder = pane.addFolder({ title: "Bloom" });
+    // bloomFolder.addBinding(params, "bloomStrength", { label: "Strength", min: 0.0, max: 1.0, step: 0.01 }).on("change", (ev) => {
+    //     bloomPass.strength = ev.value;
+    // });
+    // bloomFolder.addBinding(params, "bloomRadius", { label: "Radius", min: 0.0, max: 1.0, step: 0.01 }).on("change", (ev) => {
+    //     bloomPass.radius = ev.value;
+    // });
+    // bloomFolder.addBinding(params, "bloomThreshold", { label: "Threshold", min: 0.0, max: 5.0, step: 0.01 }).on("change", (ev) => {
+    //     bloomPass.threshold = ev.value;
+    // });
+    // bloomFolder.addBinding(params, "bloomScale", { label: "Scale", min: 0.1, max: 2.0, step: 0.1 }).on("change", (ev) => {
+    //     bloomPass.scale = ev.value;
+    // });
 
     const discMaterialFolder = pane.addFolder({ title: "Disc Material" });
     discMaterialFolder.addBinding(discMaterial.uniforms.uDopplerStrength, "value", { label: "Doppler Strength", min: 0.0, max: 1.0, step: 0.01 });
@@ -548,7 +564,9 @@ const tick = () => {
     renderer.render(distortionScene, camera);
 
     // Pass 3: Final Composition
-    composer.render();
+    // composer.render();
+    renderer.setRenderTarget(null);
+    renderer.render(finalScene, finalCamera);
 
     stats.end();
     window.requestAnimationFrame(tick);
@@ -559,7 +577,7 @@ tick();
 window.addEventListener("resize", () => {
     sizes.width = window.innerWidth;
     sizes.height = window.innerHeight;
-    sizes.pixelRatio = Math.min(window.devicePixelRatio, 2);
+    sizes.pixelRatio = Math.min(window.devicePixelRatio, isMobile ? 1.25 : 2);
 
     camera.aspect = sizes.width / sizes.height;
     camera.updateProjectionMatrix();
@@ -567,9 +585,9 @@ window.addEventListener("resize", () => {
     renderer.setSize(sizes.width, sizes.height);
     renderer.setPixelRatio(sizes.pixelRatio);
 
-    composer.setSize(sizes.width, sizes.height);
     composer.setPixelRatio(sizes.pixelRatio);
-    bloomPass.resolution.set(sizes.width, sizes.height);
+    composer.setSize(sizes.width, sizes.height);
+    bloomPass.setSize(sizes.width, sizes.height);
 
     spaceRenderTarget.setSize(
         sizes.width * sizes.pixelRatio,

@@ -3,11 +3,12 @@ uniform vec3 uColorB;
 uniform float uIntensity;
 uniform float uScale;
 
-varying vec3 vDirection;
+varying vec2 vUv;
 
 #include "../partials/getPerlinNoise3d.glsl"
 
-// 4 katmanlı Fractal Brownian Motion (FBM) bulut dokusu
+const float PI = 3.14159265359;
+
 float fbm(vec3 p) {
     float value = 0.0;
     float amplitude = 0.5;
@@ -22,21 +23,22 @@ float fbm(vec3 p) {
 }
 
 void main() {
-    vec3 dir = normalize(vDirection);
+    // 2D UV'yi 360° küresel 3D yön vektörüne çevir (dikişsiz)
+    float theta = vUv.x * 2.0 * PI;
+    float phi = (1.0 - vUv.y) * PI;
+    vec3 dir = vec3(
+        sin(phi) * cos(theta),
+        cos(phi),
+        sin(phi) * sin(theta)
+    );
 
-    // İki farklı ölçekte bulut katmanı
     float baseCloud = fbm(dir * uScale);
     float detailCloud = fbm(dir * uScale * 2.2 + vec3(4.2, -1.7, 2.8));
 
-    // Bulutların seyrek ve kontrastlı görünmesi için şekillendirme
     float nebulaMask = smoothstep(0.38, 0.78, baseCloud * 0.7 + detailCloud * 0.35);
-
-    // Hafif bir galaksi ekvator bandı (diskle uyumlu derinlik)
     float galacticBand = 1.0 - smoothstep(0.0, 0.55, abs(dir.y));
     float finalMask = nebulaMask * (0.45 + 0.55 * galacticBand);
 
-    // İki nebula rengini detay katmanına göre karıştır
     vec3 color = mix(uColorA, uColorB, smoothstep(0.3, 0.7, detailCloud));
-
     gl_FragColor = vec4(color * finalMask * uIntensity, 1.0);
 }
