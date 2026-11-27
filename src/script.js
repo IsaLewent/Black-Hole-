@@ -5,8 +5,15 @@ import { Pane } from "tweakpane";
 import Stats from "stats.js";
 
 import { inject } from '@vercel/analytics';
-
 inject();
+
+//? Effect Composer
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
+
+
 
 //? Stats
 const stats = new Stats();
@@ -305,6 +312,7 @@ const spaceRenderTarget = new THREE.WebGLRenderTarget(
         minFilter: THREE.LinearFilter,
         magFilter: THREE.LinearFilter,
         colorSpace: THREE.SRGBColorSpace,
+        type: THREE.HalfFloatType
     },
 );
 
@@ -341,6 +349,8 @@ const renderer = new THREE.WebGLRenderer({
     antialias: true,
 });
 
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
 renderer.setRenderTarget(noiseRenderTarget);
 renderer.render(noiseScene, noiseCamera);
 renderer.setRenderTarget(null);
@@ -406,6 +416,36 @@ if (pane) {
 //? Black Hole Screen Position
 const blackHoleScreenPosition = new THREE.Vector3();
 
+//? Effect Composer
+const composer = new EffectComposer(renderer);
+composer.setSize(sizes.width, sizes.height);
+composer.setPixelRatio(sizes.pixelRatio);
+
+//? 1.Pass
+const renderPass = new RenderPass(finalScene, finalCamera);
+composer.addPass(renderPass);
+
+//? 2.Pass
+const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(sizes.width, sizes.height),
+    0.07, // strength
+    0.26, // radius
+    2.0, // threshold
+);
+composer.addPass(bloomPass);
+
+//? 3.Pass
+const outputPass = new OutputPass();
+composer.addPass(outputPass);
+
+//? GUI
+if (pane) {
+    const bloomFolder = pane.addFolder({ title: "Bloom" });
+    bloomFolder.addBinding(bloomPass, "strength", { min: 0, max: 3, step: 0.01 });
+    bloomFolder.addBinding(bloomPass, "radius", { min: 0, max: 1, step: 0.01 });
+    bloomFolder.addBinding(bloomPass, "threshold", { min: 0, max: 2, step: 0.01 });
+}
+
 //? Animate
 const clock = new THREE.Timer();
 const tick = () => {
@@ -441,14 +481,12 @@ const tick = () => {
     renderer.setRenderTarget(distortionRenderTarget);
     renderer.render(distortionScene, camera);
 
-    // Pass 3: Render Final Composition to Screen
-    renderer.setRenderTarget(null);
-    renderer.render(finalScene, finalCamera);
+    // Pass 3: Final Composition
+    composer.render();
 
     stats.end();
     window.requestAnimationFrame(tick);
 };
-
 tick();
 
 //! Resize
@@ -462,6 +500,10 @@ window.addEventListener("resize", () => {
 
     renderer.setSize(sizes.width, sizes.height);
     renderer.setPixelRatio(sizes.pixelRatio);
+
+    composer.setSize(sizes.width, sizes.height);
+    composer.setPixelRatio(sizes.pixelRatio);
+    bloomPass.resolution.set(sizes.width, sizes.height);
 
     spaceRenderTarget.setSize(
         sizes.width * sizes.pixelRatio,
