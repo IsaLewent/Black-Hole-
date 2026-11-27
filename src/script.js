@@ -4,6 +4,8 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { Pane } from "tweakpane";
 import Stats from "stats.js";
 
+import { Analytics } from "@vercel/analytics/next"
+
 //? Stats
 const stats = new Stats();
 stats.showPanel(1);
