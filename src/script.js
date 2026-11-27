@@ -58,10 +58,6 @@ import blackHoleFinalSceneFragmentShader from "./shaders/finalScene/fragment.gls
 import nebulaVertexShader from "./shaders/nebula/vertex.glsl";
 import nebulaFragmentShader from "./shaders/nebula/fragment.glsl";
 
-//? PhotonRing Shaders
-import photonRingVertexShader from "./shaders/photonRing/vertex.glsl";
-import photonRingFragmentShader from "./shaders/photonRing/fragment.glsl";
-
 //? Debug Location Hash
 const debugLocationHash = window.location.hash === "#debug";
 
