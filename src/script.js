@@ -23,7 +23,10 @@ document.body.style.backgroundColor = "black";
 document.body.appendChild(stats.dom);
 
 //? Mobile or Tablet Detection
-const isMobile = window.matchMedia("(max-width: 768px)").matches;
+const isMobile =
+    (/Android|iPhone|iPod|Mobi/i.test(navigator.userAgent) ||
+        window.matchMedia("(pointer: coarse)").matches) &&
+    Math.min(window.innerWidth, window.innerHeight) <= 768;
 
 //* Shaders
 //? Stars Shaders
@@ -69,7 +72,7 @@ if (debugLocationHash) {
 
 //? UI Parameters
 const params = {
-    starsSize: 1.5,
+    starsSize: isMobile ? 400.0 : 1.5,
     particlesSize: 39.2,
 
     brightness: 3.5,
