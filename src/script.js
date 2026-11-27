@@ -73,15 +73,15 @@ if (debugLocationHash) {
 //? UI Parameters
 const params = {
     starsSize: isMobile ? 400.0 : 1.5,
-    particlesSize: 39.2,
+    particlesSize: isMobile ? 53.2 : 39.2,
 
-    brightness: 6.0,
+    brightness: isMobile ? 3.1 : 6.0,
     uvXTimeFrequency: 0.26,
     uvYTimeFrequency: 0.17,
-    particlesSpeed: 15.9,
+    particlesSpeed: isMobile ? 19.0 : 15.9,
 
-    innerColor: `#fff9f9`,
-    outerColor: `#1510a7`,
+    innerColor: isMobile ? `#ece5ed` : `#fff9f9`,
+    outerColor: isMobile ? `#1f19cc` : `#1510a7`,
 
     distortionStrength: 2.0,
     distortionRadius: 0.20,
@@ -96,9 +96,9 @@ const params = {
     bloomRadius: 0.26,
     bloomThreshold: 2.0,
 
-    dopplerStrength: 0.72,
-    dopplerColorShift: 0.87,
-    spinDirection: -0.46,
+    dopplerStrength: isMobile ? 0.98 : 0.72,
+    dopplerColorShift: isMobile ? 0.36 : 0.87,
+    spinDirection: isMobile ? -0.24 : -0.46,
 };
 let nonStringInnerColor = params.innerColor.replace("`#", "0x");
 let nonStringOuterColor = params.outerColor.replace("`#", "0x");
@@ -246,7 +246,7 @@ const blackHole = new THREE.Mesh(blackHoleGeometry, blackHoleMaterial);
 
 //* Black Hole Particles
 //? Particles Geometry
-const particlesCount = isMobile ? 10000 : 70000;
+const particlesCount = 70000;
 const particlesGeometry = new THREE.BufferGeometry();
 const particlesPosition = new Float32Array(particlesCount * 3);
 const particlesDistance = new Float32Array(particlesCount);
