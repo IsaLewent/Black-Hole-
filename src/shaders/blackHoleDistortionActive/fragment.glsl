@@ -1,4 +1,5 @@
 uniform float uDistortionRadius;
+uniform float uDistortionInnerValue;
 
 varying vec2 vUv;
 
@@ -13,7 +14,7 @@ float remap(float v, float inMin, float inMax, float outMin, float outMax) {
 
 void main() {
     float distanceToCenter = length(vUv - 0.5);
-    float radialStrength = remap(distanceToCenter, 0.0, uDistortionRadius, 1.0, 0.0);
+    float radialStrength = remap(distanceToCenter, 0.0, uDistortionRadius , uDistortionInnerValue, 0.0);
     radialStrength = smoothstep(0.0, 1.0, radialStrength);
 
     gl_FragColor = vec4(radialStrength, 1.0, 1.0, 1.0);

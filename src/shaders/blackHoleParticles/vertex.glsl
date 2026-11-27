@@ -1,5 +1,6 @@
 uniform float uTime;
 uniform float uSize;
+uniform float uParticlesSpeed;
 
 attribute float aSize;
 attribute float aAngle;
@@ -9,7 +10,7 @@ varying float vProgress;
 
 
 void main(){
-    float speed = 1.2 / pow(aDistance, 2.3) * 32.0;
+    float speed = 1.2 / pow(aDistance, 2.3) * uParticlesSpeed * 4.0;
     float angle = aAngle + uTime * (0.4 * aDistance) * 0.4 * speed;
     vec3 pos = position;
     pos.x = cos(angle) * aDistance;

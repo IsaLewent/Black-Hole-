@@ -9,7 +9,7 @@ uniform float uvYTimeFrequency;
 varying vec2 vUv;
 
 void main(){
-    vec3 color = mix(uInnerColor, uOuterColor, vUv.y);
+    vec3 color = mix(uInnerColor, uOuterColor, pow(vUv.y, 0.8));
 
     //? Edge Fade
     float innerFade = smoothstep(0.0, 0.08, vUv.y);

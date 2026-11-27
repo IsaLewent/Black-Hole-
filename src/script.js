@@ -32,15 +32,36 @@ import blackHoleDistortionMaskFragmentShader from "./shaders/blackHoleDistortion
 import blackHoleFinalSceneVertexShader from "./shaders/finalScene/vertex.glsl";
 import blackHoleFinalSceneFragmentShader from "./shaders/finalScene/fragment.glsl";
 
-//? Debug UI
-const pane = new Pane({ title: "Settings", expanded: false });
+//? Debug Location Hash
+const debugLocationHash = window.location.hash === "#debug";
 
-// UI Parameters
+//? Debug UI
+let pane = null;
+if (debugLocationHash) {
+    pane = new Pane({ title: "Settings", expanded: true });
+}
+
+//? UI Parameters
 const params = {
-    innerColor: "#ed05ff",
-    outerColor: "#3f20bd",
-    distortionRadius: 0.15,
+    starsSize: 1.5,
+    particlesSize: 39.2,
+
+    brightness: 3.5,
+    uvXTimeFrequency: 0.26,
+    uvYTimeFrequency: 0.17,
+    particlesSpeed: 15.9,
+
+    innerColor: `#fff9f9`,
+    outerColor: `#1510a7`,
+
+    distortionStrength: 2.0,
+    distortionRadius: 0.20,
+    distortionInnerValue: 1.4,
+
 };
+let nonStringInnerColor = params.innerColor.replace("`#", "0x");
+let nonStringOuterColor = params.outerColor.replace("`#", "0x");
+
 
 //? Canvas
 const canvas = document.querySelector("canvas.webgl");
@@ -71,7 +92,8 @@ const camera = new THREE.PerspectiveCamera(
     0.1,
     1000,
 );
-camera.position.set(0, 3, 10);
+camera.position.set(-0.9950781030013188, 5.4978031828700376, 11.536204514917294);
+camera.rotation.set(-0.44472812594572336, -0.07770975381383101, -0.03697996976497322);
 spaceScene.add(camera);
 
 const finalCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -114,7 +136,7 @@ starsGeometry.setAttribute("aColor", new THREE.BufferAttribute(randomColor, 3));
 //? Stars Material
 const starsMaterial = new THREE.ShaderMaterial({
     uniforms: {
-        uSize: { value: 1.5 },
+        uSize: { value: params.starsSize },
     },
     vertexShader: starsVertexShader,
     fragmentShader: starsFragmentShader,
@@ -123,7 +145,6 @@ const starsMaterial = new THREE.ShaderMaterial({
     depthWrite: false,
     blending: THREE.AdditiveBlending,
 });
-pane.addFolder({ title: "Stars Material" }).addBinding(starsMaterial.uniforms.uSize, "value", { label: "Size", min: 0.1, max: 200, step: 0.1 });
 
 //? Stars Points
 const stars = new THREE.Points(starsGeometry, starsMaterial);
@@ -163,8 +184,8 @@ const discMaterial = new THREE.ShaderMaterial({
     uniforms: {
         uNoiseTexture: { value: noiseTexture },
         uTime: { value: 0.0 },
-        uInnerColor: { value: new THREE.Color(0xed05ff) },
-        uOuterColor: { value: new THREE.Color(0x3f20bd) },
+        uInnerColor: { value: new THREE.Color(nonStringInnerColor) },
+        uOuterColor: { value: new THREE.Color(nonStringOuterColor) },
         uBrightness: { value: 3.5 },
         uvXTimeFrequency: { value: 0.31 },
         uvYTimeFrequency: { value: 0.09 },
@@ -179,25 +200,11 @@ const disc = new THREE.Mesh(discGeomtry, discMaterial);
 disc.rotation.x = Math.PI;
 spaceScene.add(disc);
 
-//? Disc Material GUI
-const discMaterialFolder = pane.addFolder({ title: "Disc Material" });
-discMaterialFolder.addBinding(params, "innerColor").on("change", (ev) => {
-    discMaterial.uniforms.uInnerColor.value.set(ev.value);
-    particlesMaterial.uniforms.uInnerColor.value.set(ev.value);
-});
-discMaterialFolder.addBinding(params, "outerColor").on("change", (ev) => {
-    discMaterial.uniforms.uOuterColor.value.set(ev.value);
-    particlesMaterial.uniforms.uOuterColor.value.set(ev.value);
-});
-discMaterialFolder.addBinding(discMaterial.uniforms.uBrightness, "value", { label: "Brightness", min: 0.1, max: 10, step: 0.1 });
-discMaterialFolder.addBinding(discMaterial.uniforms.uvXTimeFrequency, "value", { label: "UV X Time Frequency", min: 0.01, max: 1, step: 0.01 });
-discMaterialFolder.addBinding(discMaterial.uniforms.uvYTimeFrequency, "value", { label: "UV Y Time Frequency", min: 0.01, max: 1, step: 0.01 });
-
 //? Black Hole
 const blackHoleGeometry = new THREE.SphereGeometry(1, 64, 64);
-const blackHoleMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
+const blackHoleMaterial = new THREE.MeshBasicMaterial({ color: "black" });
 const blackHole = new THREE.Mesh(blackHoleGeometry, blackHoleMaterial);
-spaceScene.add(blackHole);
+// spaceScene.add(blackHole);
 
 //* Black Hole Particles
 //? Particles Geometry
@@ -230,9 +237,10 @@ const particlesMaterial = new THREE.ShaderMaterial({
     fragmentShader: blackHoleParticlesFragmentShader,
     uniforms: {
         uTime: { value: 0.0 },
-        uSize: { value: 30.0 },
-        uInnerColor: { value: new THREE.Color(0xed05ff) },
-        uOuterColor: { value: new THREE.Color(0x3f20bd) },
+        uSize: { value: params.particlesSize },
+        uParticlesSpeed: { value: params.particlesSpeed },
+        uInnerColor: { value: new THREE.Color(nonStringInnerColor) },
+        uOuterColor: { value: new THREE.Color(nonStringOuterColor) },
     },
     transparent: true,
     depthTest: false,
@@ -243,18 +251,19 @@ const particles = new THREE.Points(particlesGeometry, particlesMaterial);
 spaceScene.add(particles);
 
 //* Black Hole Distortion (Camera-Angle Billboard + Horizontal Disc Mask)
-const distortionActiveGeometry = new THREE.PlaneGeometry(1, 1);
+const distortionActiveGeometry = new THREE.PlaneGeometry(2, 2);
 const distortionActiveMaterial = new THREE.ShaderMaterial({
     vertexShader: blackHoleDistortionActiveVertexShader,
     fragmentShader: blackHoleDistortionActiveFragmentShader,
     uniforms: {
         uDistortionRadius: { value: params.distortionRadius },
+        uDistortionInnerValue: { value: params.distortionInnerValue },
     },
     side: THREE.DoubleSide,
     transparent: true,
 });
 const distortionActive = new THREE.Mesh(distortionActiveGeometry, distortionActiveMaterial);
-distortionActive.scale.set(10, 10, 10);
+distortionActive.scale.set(5, 5, 5);
 distortionScene.add(distortionActive);
 
 const distortionMaskGeometry = new THREE.PlaneGeometry(1, 1);
@@ -263,6 +272,7 @@ const distortionMaskMaterial = new THREE.ShaderMaterial({
     fragmentShader: blackHoleDistortionMaskFragmentShader,
     uniforms: {
         uDistortionRadius: { value: params.distortionRadius },
+        uDistortionInnerValue: { value: params.distortionInnerValue },
     },
     side: THREE.DoubleSide,
     transparent: true,
@@ -279,6 +289,7 @@ const spaceRenderTarget = new THREE.WebGLRenderTarget(
     {
         minFilter: THREE.LinearFilter,
         magFilter: THREE.LinearFilter,
+        colorSpace: THREE.SRGBColorSpace,
     },
 );
 
@@ -288,6 +299,7 @@ const distortionRenderTarget = new THREE.WebGLRenderTarget(
     {
         minFilter: THREE.LinearFilter,
         magFilter: THREE.LinearFilter,
+        colorSpace: THREE.SRGBColorSpace,
     },
 );
 
@@ -300,33 +312,13 @@ const finalMaterial = new THREE.ShaderMaterial({
         uSpaceTexture: { value: spaceRenderTarget.texture },
         uDistortionTexture: { value: distortionRenderTarget.texture },
         uBlackHolePosition: { value: new THREE.Vector2(0.5, 0.5) },
-        uDistortionStrength: { value: 2.0 },
+        uDistortionStrength: { value: params.distortionStrength },
     },
     depthWrite: false,
     depthTest: false,
 });
 const finalMesh = new THREE.Mesh(finalGeometry, finalMaterial);
 finalScene.add(finalMesh);
-
-//? Distortion GUI
-const distortionFolder = pane.addFolder({ title: "Distortion" });
-distortionFolder.addBinding(finalMaterial.uniforms.uDistortionStrength, "value", {
-    label: "Strength",
-    min: 0.0,
-    max: 4.0,
-    step: 0.05,
-});
-distortionFolder
-    .addBinding(params, "distortionRadius", {
-        label: "Radius",
-        min: 0.05,
-        max: 0.35,
-        step: 0.005,
-    })
-    .on("change", (ev) => {
-        distortionActiveMaterial.uniforms.uDistortionRadius.value = ev.value;
-        distortionMaskMaterial.uniforms.uDistortionRadius.value = ev.value;
-    });
 
 //? Renderer
 const renderer = new THREE.WebGLRenderer({
@@ -341,6 +333,62 @@ renderer.setSize(sizes.width, sizes.height);
 renderer.setPixelRatio(sizes.pixelRatio);
 renderer.setClearColor("#000000");
 
+//? General Black Hole GUI
+if (pane) {
+    const blackHoleFolder = pane.addFolder({ title: "Black Hole" });
+    blackHoleFolder.addBinding(params, "innerColor", { label: "Inner Color" }).on("change", (ev) => {
+        nonStringInnerColor = ev.value.replace("`#", "0x");
+        discMaterial.uniforms.uInnerColor.value.set(nonStringInnerColor);
+        particlesMaterial.uniforms.uInnerColor.value.set(nonStringInnerColor);
+        params.innerColor = ev.value;
+    });
+    blackHoleFolder.addBinding(params, "outerColor", { label: "Outer Color" }).on("change", (ev) => {
+        nonStringOuterColor = ev.value.replace("`#", "0x");
+        discMaterial.uniforms.uOuterColor.value.set(nonStringOuterColor);
+        particlesMaterial.uniforms.uOuterColor.value.set(nonStringOuterColor);
+        params.outerColor = ev.value;
+    });
+    blackHoleFolder.addBinding(params, "starsSize", { label: "Stars Size", min: 0.1, max: 400.0, step: 0.1 }).on("change", (ev) => {
+        starsMaterial.uniforms.uSize.value = ev.value;
+        params.starsSize = ev.value;
+    });
+    blackHoleFolder.addBinding(params, "particlesSize", { label: "Particles Size", min: 0.1, max: 400.0, step: 0.1 }).on("change", (ev) => {
+        particlesMaterial.uniforms.uSize.value = ev.value;
+        params.particlesSize = ev.value;
+    });
+    blackHoleFolder.addBinding(params, "brightness", { label: "Brightness", min: 0.1, max: 10.0, step: 0.1 }).on("change", (ev) => {
+        discMaterial.uniforms.uBrightness.value = ev.value;
+        params.brightness = ev.value;
+    });
+    blackHoleFolder.addBinding(params, "uvXTimeFrequency", { label: "Black Hole X Direction Speed", min: 0.01, max: 1.0, step: 0.01 }).on("change", (ev) => {
+        discMaterial.uniforms.uvXTimeFrequency.value = ev.value;
+        params.uvXTimeFrequency = ev.value;
+    });
+    blackHoleFolder.addBinding(params, "uvYTimeFrequency", { label: "Black Hole Y Direction Speed", min: 0.01, max: 1.0, step: 0.01 }).on("change", (ev) => {
+        discMaterial.uniforms.uvYTimeFrequency.value = ev.value;
+        params.uvYTimeFrequency = ev.value;
+    });
+    blackHoleFolder.addBinding(params, "particlesSpeed", { label: "Particles Speed", min: 0.1, max: 50.0, step: 0.1 }).on("change", (ev) => {
+        particlesMaterial.uniforms.uParticlesSpeed.value = ev.value;
+        params.particlesSpeed = ev.value;
+    });
+    blackHoleFolder.addBinding(params, "distortionStrength", { label: "Black Hole Distortion Strength", min: 0.1, max: 5.0, step: 0.1 }).on("change", (ev) => {
+        finalMaterial.uniforms.uDistortionStrength.value = ev.value;
+        params.distortionStrength = ev.value;
+    });
+    blackHoleFolder.addBinding(params, "distortionRadius", { label: "Black Hole Distortion Radius", min: 0.01, max: 1.0, step: 0.01 }).on("change", (ev) => {
+        distortionActiveMaterial.uniforms.uDistortionRadius.value = ev.value;
+        distortionMaskMaterial.uniforms.uDistortionRadius.value = ev.value;
+        params.distortionRadius = ev.value;
+    });
+    blackHoleFolder.addBinding(params, "distortionInnerValue", { label: "Black Hole Distortion Inner Value", min: 0.1, max: 5.0, step: 0.1 }).on("change", (ev) => {
+        distortionActiveMaterial.uniforms.uDistortionInnerValue.value = ev.value;
+        distortionMaskMaterial.uniforms.uDistortionInnerValue.value = ev.value;
+        params.distortionInnerValue = ev.value;
+    });
+}
+
+//? Black Hole Screen Position
 const blackHoleScreenPosition = new THREE.Vector3();
 
 //? Animate
