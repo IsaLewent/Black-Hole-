@@ -2,6 +2,17 @@ import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 import { Pane } from "tweakpane";
+import Stats from "stats.js";
+
+//? Stats
+const stats = new Stats();
+stats.showPanel(1);
+document.body.appendChild(stats.dom);
+document.body.style.margin = "0";
+document.body.style.overflow = "hidden";
+document.body.style.backgroundColor = "black";
+document.body.appendChild(stats.dom);
+
 
 //* Shaders
 //? Stars Shaders
@@ -394,9 +405,12 @@ const blackHoleScreenPosition = new THREE.Vector3();
 //? Animate
 const clock = new THREE.Timer();
 const tick = () => {
-    controls.update();
-
+    // Stats Update
+    stats.begin();
     clock.update();
+
+    // Update Controls
+    controls.update();
     const elapsedTime = clock.getElapsed();
 
     discMaterial.uniforms.uTime.value = elapsedTime;
@@ -427,6 +441,7 @@ const tick = () => {
     renderer.setRenderTarget(null);
     renderer.render(finalScene, finalCamera);
 
+    stats.end();
     window.requestAnimationFrame(tick);
 };
 
