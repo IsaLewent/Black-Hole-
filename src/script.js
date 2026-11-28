@@ -3,6 +3,7 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 import { Pane } from "tweakpane";
 import Stats from "stats.js";
+import gsap from "gsap";
 
 import { inject } from '@vercel/analytics';
 inject();
@@ -99,6 +100,12 @@ const params = {
     dopplerStrength: isMobile ? 0.98 : 0.72,
     dopplerColorShift: isMobile ? 0.36 : 0.87,
     spinDirection: isMobile ? -0.24 : -0.46,
+
+    introDuration: 3.6,
+    introEase: "expo.inOut",
+    introDynamicFov: true,
+    introStartFov: 30,
+    introEndFov: 55,
 };
 let nonStringInnerColor = params.innerColor.replace("`#", "0x");
 let nonStringOuterColor = params.outerColor.replace("`#", "0x");
@@ -136,6 +143,72 @@ const finalCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 //? Setup The Controls
 const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
+
+//* GSAP Cinematic Camera Intro (Smooth Swooping Curve + Dynamic FOV)
+const cameraCurve = new THREE.CatmullRomCurve3(
+    [
+        new THREE.Vector3(-18.0, 16.5, 22.0),
+        new THREE.Vector3(-12.5, 8.2, 18.5),
+        new THREE.Vector3(-5.5, 3.0, 14.2),
+        new THREE.Vector3(-1.2, 2.0, 12.2),
+        new THREE.Vector3(0.0, 2.2, 11.2),
+    ],
+    false,
+    "centripetal",
+    0.5,
+);
+
+const lookAtCurve = new THREE.CatmullRomCurve3(
+    [
+        new THREE.Vector3(2.8, 1.6, 0.0),
+        new THREE.Vector3(1.0, 0.5, 0.0),
+        new THREE.Vector3(0.0, 0.0, 0.0),
+    ],
+    false,
+    "centripetal",
+    0.5,
+);
+
+const introState = { progress: 0 };
+const introTempPos = new THREE.Vector3();
+const introTempLook = new THREE.Vector3();
+let introTween = null;
+
+const applyCameraIntro = (t) => {
+    cameraCurve.getPointAt(t, introTempPos);
+    lookAtCurve.getPointAt(t, introTempLook);
+    camera.position.copy(introTempPos);
+    camera.lookAt(introTempLook);
+
+    const targetFov = params.introDynamicFov
+        ? THREE.MathUtils.lerp(params.introStartFov, params.introEndFov, t)
+        : 45;
+    if (Math.abs(camera.fov - targetFov) > 0.01) {
+        camera.fov = targetFov;
+        camera.updateProjectionMatrix();
+    }
+};
+
+const playCameraIntro = () => {
+    if (introTween) introTween.kill();
+    controls.enabled = false;
+    introState.progress = 0;
+    applyCameraIntro(0);
+
+    introTween = gsap.to(introState, {
+        progress: 1,
+        duration: params.introDuration,
+        ease: params.introEase,
+        onUpdate: () => {
+            applyCameraIntro(introState.progress);
+        },
+        onComplete: () => {
+            controls.target.set(0, 0, 0);
+            controls.update();
+            controls.enabled = true;
+        },
+    });
+};
 
 //* Stars
 //? Stars Geometry
@@ -526,6 +599,27 @@ if (pane) {
     discMaterialFolder.addBinding(discMaterial.uniforms.uDopplerStrength, "value", { label: "Doppler Strength", min: 0.0, max: 1.0, step: 0.01 });
     discMaterialFolder.addBinding(discMaterial.uniforms.uDopplerColorShift, "value", { label: "Doppler Color Shift", min: 0.0, max: 1.0, step: 0.01 });
     discMaterialFolder.addBinding(discMaterial.uniforms.uSpinDirection, "value", { label: "Spin Direction", min: -1.0, max: 1.0, step: 0.01 });
+
+    const cameraIntroFolder = pane.addFolder({ title: "Camera Intro (GSAP)" });
+    cameraIntroFolder.addBinding(params, "introDuration", { label: "Duration (s)", min: 1.5, max: 9.0, step: 0.1 });
+    cameraIntroFolder.addBinding(params, "introEase", {
+        label: "Ease",
+        options: {
+            "expo.inOut (Seçili)": "expo.inOut",
+            "power3.inOut": "power3.inOut",
+            "power4.out": "power4.out",
+            "expo.out": "expo.out",
+            "power2.inOut": "power2.inOut",
+            "sine.inOut": "sine.inOut",
+        },
+    });
+    cameraIntroFolder.addBinding(params, "introDynamicFov", { label: "Dynamic FOV" });
+    cameraIntroFolder.addBinding(params, "introStartFov", { label: "Start FOV", min: 20, max: 55, step: 1 });
+    cameraIntroFolder.addBinding(params, "introEndFov", { label: "End FOV", min: 35, max: 75, step: 1 });
+    cameraIntroFolder.addButton({ title: "Tekrar Oynat (Replay)" }).on("click", () => {
+        playCameraIntro();
+    });
+
 }
 
 //? Black Hole Screen Position
@@ -539,7 +633,8 @@ const tick = () => {
     clock.update();
 
     // Update Controls
-    controls.update();
+    if (controls.enabled) controls.update();
+
     const elapsedTime = clock.getElapsed();
 
     discMaterial.uniforms.uTime.value = elapsedTime;
@@ -574,6 +669,7 @@ const tick = () => {
     stats.end();
     window.requestAnimationFrame(tick);
 };
+playCameraIntro();
 tick();
 
 //! Resize
