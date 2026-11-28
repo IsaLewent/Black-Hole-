@@ -466,7 +466,7 @@ const nebulaMaterial = new THREE.ShaderMaterial({
     },
 });
 nebulaBakeScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), nebulaMaterial));
-const nebula = new THREE.Mesh(new THREE.SphereGeometry(500, 64, 64), new THREE.MeshBasicMaterial({ map: nebulaRenderTarget.texture, side: THREE.BackSide }));
+const nebula = new THREE.Mesh(new THREE.SphereGeometry(600, 64, 64), new THREE.MeshBasicMaterial({ map: nebulaRenderTarget.texture, side: THREE.BackSide }));
 nebula.renderOrder = -1; // Her zaman en arka katmanda çizilir
 spaceScene.add(nebula);
 
@@ -619,7 +619,6 @@ if (pane) {
     cameraIntroFolder.addButton({ title: "Tekrar Oynat (Replay)" }).on("click", () => {
         playCameraIntro();
     });
-
 }
 
 //? Black Hole Screen Position
