@@ -89,8 +89,8 @@ const params = {
 
     nebulaColorA: "#ab81ff",
     nebulaColorB: "#db4298",
-    nebulaIntensity: 1.0,
-    nebulaScale: 3.8,
+    nebulaIntensity: 0.24,
+    nebulaScale: 1.82,
 
     bloomStrength: 0.07,
     bloomRadius: 0.26,
@@ -418,7 +418,7 @@ const bloomScale = isMobile ? 0.35 : 0.5;
 
 const composer = new EffectComposer(renderer);
 composer.setPixelRatio(sizes.pixelRatio);
-composer.setSize(sizes.width * sizes.pixelRatio, sizes.height * sizes.pixelRatio);
+composer.setSize(sizes.width, sizes.height);
 
 //? 1.Pass
 const renderPass = new RenderPass(finalScene, finalCamera);
