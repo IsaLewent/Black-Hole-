@@ -90,7 +90,7 @@ const params = {
     nebulaColorA: "#ab81ff",
     nebulaColorB: "#db4298",
     nebulaIntensity: 0.24,
-    nebulaScale: 1.82,
+    nebulaScale: 2.32,
 
     bloomStrength: 0.07,
     bloomRadius: 0.26,
@@ -369,8 +369,8 @@ const renderer = new THREE.WebGLRenderer({
 //? Nebula
 //? Nebula Render Target
 const nebulaRenderTarget = new THREE.WebGLRenderTarget(
-    sizes.width * sizes.pixelRatio,
-    sizes.height * sizes.pixelRatio,
+    isMobile ? 512 : sizes.width * sizes.pixelRatio,
+    isMobile ? 512 : sizes.height * sizes.pixelRatio,
     {
         generateMipmaps: false,
         minFilter: THREE.LinearFilter,
